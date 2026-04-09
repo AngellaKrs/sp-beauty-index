@@ -136,7 +136,7 @@ thead th:hover { color:var(--text); }
 tbody tr { border-top:1px solid rgba(255,255,255,0.08); cursor:pointer; transition:background 0.12s; }
 tbody tr:hover { background:rgba(254,0,137,0.06); }
 tbody td { padding:12px 14px; font-size:13px; color:#ffffff !important; }
-.brand-cell { display:flex; align-items:center; gap:10px; }
+.brand-cell { display:flex; align-items:center; gap:10px; } .brand-cell[data-brand]:hover span { color:var(--sp-pink) !important; }
 .brand-logo {
   width:32px; height:32px; border-radius:8px; object-fit:contain;
   background:#fff; border:1px solid var(--border); padding:2px; flex-shrink:0;
@@ -231,8 +231,8 @@ tbody td { padding:12px 14px; font-size:13px; color:#ffffff !important; }
 .coc-logo { width:36px; height:36px; border-radius:8px; object-fit:contain; border:1px solid var(--border); padding:2px; background:#fff; flex-shrink:0; }
 .coc-name { font-weight:700; font-size:13px; color:#ffffff; }
 .coc-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-.coc-platform { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:var(--muted); }
-.coc-val { font-family:'DM Mono'; font-size:13px; font-weight:500; color:var(--text); }
+.coc-platform { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:rgba(255,255,255,0.7); }
+.coc-val { font-family:'DM Mono'; font-size:13px; font-weight:600; color:#ffffff; }
 
 /* SP INDEX */
 .sp-pillar-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
@@ -2600,7 +2600,7 @@ function renderCollabsGrid() {
         <div class="coc-val">${igP?fmt(igP):'—'}</div>
       </div>
       <div class="coc-row">
-        <div class="coc-platform" style="color:#000">🎵 TT Collabs</div>
+        <div class="coc-platform" style="color:rgba(255,255,255,0.7)">🎵 TT Collabs</div>
         <div class="coc-val">${ttP?fmt(ttP):'—'}</div>
       </div>
       <div style="margin-top:10px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden">
@@ -2642,7 +2642,7 @@ function renderPostsPage() {
     const link=p.u&&p.u!=='nan'&&p.u!=='undefined'?`<a href="${p.u}" target="_blank" style="color:${isIG?'var(--ig)':'#000'};font-size:12px;text-decoration:none;font-weight:600">↗</a>`:'—';
     return `<tr>
       <td style="color:var(--muted);font-family:'DM Mono';font-size:11px">${start+i+1}</td>
-      <td><div class="brand-cell">${logoImg(p.b,22)}<span style="font-size:12px;font-weight:600">${p.b}</span></div></td>
+      <td><div class="brand-cell" data-brand="${p.b.replace(/"/g,'&quot;')}" style="cursor:pointer">${logoImg(p.b,22)}<span style="font-size:12px;font-weight:600;color:#fff">${p.b}</span></div></td>
       <td><span class="platform-badge badge-${p.p}">${p.p.toUpperCase()}</span></td>
       <td>${src}</td><td>${creator}</td><td>${ctype}</td>
       <td style="font-family:'DM Mono';font-size:11px;color:var(--muted)">${p.d}</td>
@@ -2679,9 +2679,13 @@ function showTab(name) {
 // ---- INIT ----
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('.brand-btn');
-  if (btn && btn.dataset.brand) showBrand(btn.dataset.brand);
+  if (btn && btn.dataset.brand) { showBrand(btn.dataset.brand); return; }
   const row = e.target.closest('tr[data-brand]');
-  if (row && row.dataset.brand) showBrand(row.dataset.brand);
+  if (row && row.dataset.brand) { showBrand(row.dataset.brand); return; }
+  const card = e.target.closest('.collab-overview-card');
+  if (card && card.dataset.brand) { showBrand(card.dataset.brand); return; }
+  const brandCell = e.target.closest('.brand-cell[data-brand]');
+  if (brandCell && brandCell.dataset.brand) { showBrand(brandCell.dataset.brand); return; }
 });
 renderHero();
 renderSummary();
