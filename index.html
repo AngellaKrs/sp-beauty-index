@@ -1246,6 +1246,9 @@ tbody td { padding:12px 14px; font-size:13px; color:#ffffff !important; }
       </table>
     </div>
   </div>
+
+  <!-- GROUP SCORES LEADERBOARD -->
+  <div id="spindex-groups"></div>
 </div>
 
 <!-- OVERVIEW TAB -->
@@ -2365,6 +2368,30 @@ function setMonth(month) {
   if (typeof rerenderAll === 'function') rerenderAll();
 }
 
+// ---- GROUP SCORES ----
+const SP_GROUPS = [
+  { key: 'brandPresenceScore',    label: 'Brand Presence',              short: 'Brand Presence',    weight: '33%', color: '#a78bfa',
+    desc: 'Social Size + Social Growth + Engagement Rate + ER Growth' },
+  { key: 'partnershipPowerScore', label: 'Partnership Power',           short: 'Partnership Power', weight: '27%', color: '#34d399',
+    desc: 'Volume of Paid Collabs + Growth in Paid Collabs' },
+  { key: 'partnershipEffScore',   label: 'Partnership Effectiveness',   short: 'P. Effectiveness',  weight: '27%', color: '#fb923c',
+    desc: 'Effectiveness of Partnerships + Growth in Partnership Effectiveness' },
+  { key: 'organicBuzzScore',      label: 'Organic Buzz',                short: 'Organic Buzz',      weight: '13%', color: '#00d4ff',
+    desc: 'Wider Brand Momentum + Growth in Wider Momentum' },
+];
+function computeGroupScores(s) {
+  const r = v => Math.round(v * 10) / 10;
+  return {
+    brandPresenceScore:    r(((s.socialSizeScore||0)*0.05 + (s.socialGrowthScore||0)*0.08 + (s.engRateScore||0)*0.08 + (s.engRateGrowthScore||0)*0.12) / 0.33),
+    partnershipPowerScore: r(((s.paidCollabScore||0)*0.15  + (s.paidGrowthScore||0)*0.12) / 0.27),
+    partnershipEffScore:   r(((s.effectivenessScore||0)*0.15 + (s.effGrowthScore||0)*0.12) / 0.27),
+    organicBuzzScore:      r(((s.momentumScore||0)*0.07   + (s.momentumGrowthScore||0)*0.06) / 0.13),
+  };
+}
+// Enrich all months' scores with group scores (computed once at load)
+Object.values(SP_SCORES_BY_MONTH).forEach(monthScores =>
+  Object.values(monthScores).forEach(s => Object.assign(s, computeGroupScores(s)))
+);
 
 
 // ---- HIGHLIGHTS ----
@@ -2610,8 +2637,93 @@ function activePillars() {
 }
 
 function renderSPIndex() {
+  const isApril = CURRENT_MONTH === 'April 2026';
+  const ranked = Object.entries(SP_SCORES).sort((a,b)=>b[1].spIndex-a[1].spIndex);
+  const maxSP = ranked[0][1].spIndex;
+
+  // Subtitle
+  const sub = document.getElementById('spindex-sub');
+  if (sub) sub.textContent = isApril
+    ? 'Scored out of 100 · 4 group scores · SP Index unchanged'
+    : 'Scored out of 46 · 6 base pillars';
+
+  function scoreBar(val, color, max, minWidth='110px') {
+    const v = val || 0;
+    const pct = Math.min(100, (v/max)*100);
+    return `<td style="min-width:${minWidth}">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="height:100%;border-radius:3px;background:${color};width:${pct.toFixed(1)}%"></div>
+        </div>
+        <span style="font-family:'DM Mono';font-size:11px;color:${color};min-width:30px;font-weight:600;text-align:right">${v.toFixed(1)}</span>
+      </div>
+    </td>`;
+  }
+
+  // ---- APRIL: group scores only ----
+  if (isApril) {
+    // Hide old pillar cards & table, show group section
+    document.getElementById('spindex-pillars').innerHTML = '';
+    const tableWrap = document.querySelector('#tab-spindex .table-wrap');
+    if (tableWrap) tableWrap.style.display = 'none';
+
+    const maxByGroup = {};
+    SP_GROUPS.forEach(g => {
+      maxByGroup[g.key] = Math.max(...ranked.map(([,s]) => s[g.key]||0), 1);
+    });
+
+    const groupCardsHtml = SP_GROUPS.map(g => `
+      <div class="sp-pillar-card" style="border-top-color:${g.color}">
+        <div class="sp-pillar-weight" style="color:${g.color}">${g.weight}</div>
+        <div class="sp-pillar-name">${g.label}</div>
+        <div class="sp-pillar-desc">${g.desc}</div>
+      </div>`).join('');
+
+    const groupHeadHtml = `
+      <th style="width:60px">Rank</th>
+      <th>Brand</th>
+      <th style="min-width:180px">SP Index Score</th>
+      ${SP_GROUPS.map(g => `<th style="min-width:150px"><span style="white-space:nowrap">${g.short}</span> <span style="color:var(--muted);font-weight:400;font-size:11px">(${g.weight})</span></th>`).join('')}
+    `;
+
+    const groupRows = ranked.map(([brand, s], i) => {
+      const rank = i + 1;
+      const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':`<span style="font-family:'DM Mono';font-size:13px;color:var(--muted)">${rank}</span>`;
+      return `<tr data-brand="${brand.replace(/'/g,"\\'")}">
+        <td style="padding-left:20px;font-size:18px;width:60px">${medal}</td>
+        <td><div class="brand-cell">${logoImg(brand,32)}<span class="brand-name-text">${brand}</span></div></td>
+        <td style="min-width:200px;padding-right:24px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+              <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--sp-pink),rgba(255,59,92,0.3));width:${(s.spIndex/maxSP*100).toFixed(1)}%"></div>
+            </div>
+            <span style="font-family:'DM Mono';font-size:15px;font-weight:800;color:var(--sp-pink);min-width:36px">${(s.spIndex||0).toFixed(1)}</span>
+          </div>
+        </td>
+        ${SP_GROUPS.map(g => scoreBar(s[g.key], g.color, maxByGroup[g.key], '150px')).join('')}
+      </tr>`;
+    }).join('');
+
+    document.getElementById('spindex-groups').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">${groupCardsHtml}</div>
+      <div class="table-wrap">
+        <div class="table-header"><h3 data-month-label data-month-label-template="Group Score Rankings · {month}">Group Score Rankings · April 2026</h3></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>${groupHeadHtml}</tr></thead>
+            <tbody>${groupRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // ---- MARCH (and any other month): original pillar cards + table ----
+  document.getElementById('spindex-groups').innerHTML = '';
+  const tableWrap = document.querySelector('#tab-spindex .table-wrap');
+  if (tableWrap) tableWrap.style.display = '';
+
   const pillars = activePillars();
-  // Render pillar info cards at top
   const cardsHtml = pillars.map(p => `
     <div class="sp-pillar-card" style="border-top-color:${p.color}">
       <div class="sp-pillar-weight" style="color:${p.color}">${p.weight}</div>
@@ -2622,13 +2734,6 @@ function renderSPIndex() {
   document.getElementById('spindex-pillars').innerHTML =
     `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;margin-bottom:20px">${cardsHtml}</div>`;
 
-  // Subtitle
-  const sub = document.getElementById('spindex-sub');
-  if (sub) sub.textContent = CURRENT_MONTH === 'April 2026'
-    ? 'Scored out of 100 · 10 pillars (6 base + 4 growth)'
-    : 'Scored out of 46 · 6 base pillars';
-
-  // Table head
   const headHtml = `
     <th style="width:60px">Rank</th>
     <th>Brand</th>
@@ -2637,27 +2742,10 @@ function renderSPIndex() {
   `;
   document.getElementById('sp-table-head').innerHTML = headHtml;
 
-  // Table body
-  const ranked = Object.entries(SP_SCORES).sort((a,b)=>b[1].spIndex-a[1].spIndex);
-  const maxSP = ranked[0][1].spIndex;
-  // Per-pillar max for relative bar fill
   const maxByKey = {};
   pillars.forEach(p => {
     maxByKey[p.key] = Math.max(...ranked.map(([,s]) => s[p.key]||0), 1);
   });
-
-  function scoreBar(val, color, max) {
-    const v = val || 0;
-    const pct = Math.min(100, (v/max)*100);
-    return `<td style="min-width:110px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
-          <div style="height:100%;border-radius:3px;background:${color};width:${pct.toFixed(1)}%"></div>
-        </div>
-        <span style="font-family:'DM Mono';font-size:11px;color:${color};min-width:30px;font-weight:600;text-align:right">${v.toFixed(1)}</span>
-      </div>
-    </td>`;
-  }
 
   document.getElementById('sp-table-body').innerHTML = ranked.map(([brand,s],i)=>{
     const rank=i+1;
@@ -2726,6 +2814,10 @@ function showBrand(name) {
         ${sp?`<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
           <span style="font-size:12px;padding:3px 10px;border-radius:6px;background:var(--sp-pink-dim);color:var(--sp-pink);font-weight:700">SP Index: ${(sp.spIndex||0).toFixed(1)}</span>
           ${activePillars().map(p => `<span style="font-size:12px;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.05);color:${p.color};font-weight:600">${p.short}: ${(sp[p.key]||0).toFixed(1)}</span>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <span style="font-size:11px;padding:2px 8px;border-radius:5px;background:rgba(255,255,255,0.04);color:var(--muted);font-weight:600;letter-spacing:0.5px">GROUP SCORES</span>
+          ${SP_GROUPS.map(g => `<span style="font-size:12px;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.05);color:${g.color};font-weight:600">${g.short}: ${(sp[g.key]||0).toFixed(1)}</span>`).join('')}
         </div>`:''}</div>
     </div>
     <div class="detail-grid">
